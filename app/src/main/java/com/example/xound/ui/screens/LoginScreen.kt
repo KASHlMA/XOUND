@@ -26,10 +26,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.R
 import com.example.xound.ui.theme.XOUNDTheme
 import com.example.xound.ui.theme.XoundNavy
 import com.example.xound.ui.theme.XoundYellow
+import com.example.xound.ui.viewmodel.AuthUiState
+import com.example.xound.ui.viewmodel.AuthViewModel
 
 // Usada también por RegisterScreen
 @Composable
@@ -63,17 +66,32 @@ fun XoundLogo() {
 }
 
 @Composable
-fun LoginScreen(onNavigateToRegister: () -> Unit) {
+fun LoginScreen(
+    onNavigateToRegister: () -> Unit,
+    onLoginSuccess: () -> Unit = {},
+    authViewModel: AuthViewModel = viewModel()
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    val uiState by authViewModel.uiState.collectAsState()
+    val isLoading = uiState is AuthUiState.Loading
+
+    // Navegar cuando el login es exitoso
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            onLoginSuccess()
+            authViewModel.resetState()
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Círculo naranja — se dibuja primero para quedar detrás de la ola
+        // Círculo naranja — detrás de la ola
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -90,7 +108,6 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     .fillMaxWidth()
                     .height(350.dp)
             ) {
-                // Ola navy (misma curva que el SVG de React Native)
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
@@ -107,8 +124,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     }
                     drawPath(wavePath, XoundNavy)
                 }
-6
-                // Logo XOUND (imagen)
+
                 Image(
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = "XOUND Logo",
@@ -127,11 +143,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     .padding(horizontal = 40.dp)
                     .padding(top = 20.dp)
             ) {
-                Text(
-                    text = "Ingresa tu cuenta",
-                    fontSize = 14.sp,
-                    color = Color.Black
-                )
+                Text(text = "Ingresa tu cuenta", fontSize = 14.sp, color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = email,
@@ -140,6 +152,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
+                    enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = Color(0xFFE5E5E5),
@@ -151,11 +164,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(15.dp))
 
-                Text(
-                    text = "Ingresa tu contraseña",
-                    fontSize = 14.sp,
-                    color = Color.Black
-                )
+                Text(text = "Ingresa tu contraseña", fontSize = 14.sp, color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = password,
@@ -164,6 +173,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
+                    enabled = !isLoading,
                     visualTransformation = if (passwordVisible) VisualTransformation.None
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -184,22 +194,41 @@ fun LoginScreen(onNavigateToRegister: () -> Unit) {
                     )
                 )
 
-                Spacer(modifier = Modifier.height(30.dp))
+                // Mensaje de error
+                if (uiState is AuthUiState.Error) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = (uiState as AuthUiState.Error).message,
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = { /* TODO: lógica de login */ },
+                    onClick = { authViewModel.login(email, password) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
+                    enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = XoundNavy),
                     shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text(
-                        text = "Iniciar sesión",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Iniciar sesión",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(25.dp))

@@ -56,4 +56,18 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Retrofit + OkHttp
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp.logging)
+
+    // Coroutines
+    implementation(libs.coroutines.android)
+
+    // ViewModel + Compose
+    implementation(libs.lifecycle.viewmodel.compose)
+
+    // Material Icons Extended
+    implementation(libs.androidx.compose.material.icons)
 }

@@ -28,18 +28,37 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.R
 import com.example.xound.ui.theme.XOUNDTheme
 import com.example.xound.ui.theme.XoundNavy
 import com.example.xound.ui.theme.XoundYellow
+import com.example.xound.ui.viewmodel.AuthUiState
+import com.example.xound.ui.viewmodel.AuthViewModel
 
 @Composable
-fun RegisterScreen(onNavigateToLogin: () -> Unit) {
+fun RegisterScreen(
+    onNavigateToLogin: () -> Unit,
+    onRegisterSuccess: () -> Unit = {},
+    authViewModel: AuthViewModel = viewModel()
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var passwordMismatch by remember { mutableStateOf(false) }
+
+    val uiState by authViewModel.uiState.collectAsState()
+    val isLoading = uiState is AuthUiState.Loading
+
+    // Navegar cuando el registro es exitoso
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            onRegisterSuccess()
+            authViewModel.resetState()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -121,6 +140,7 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
+                    enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = Color(0xFFE5E5E5),
@@ -135,11 +155,12 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit) {
                 // Contraseña
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { password = it; passwordMismatch = false },
                     placeholder = { Text("Contraseña", color = Color(0xFF999999), fontSize = 15.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
+                    enabled = !isLoading,
                     visualTransformation = if (passwordVisible) VisualTransformation.None
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -165,11 +186,13 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit) {
                 // Confirmar contraseña
                 OutlinedTextField(
                     value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
+                    onValueChange = { confirmPassword = it; passwordMismatch = false },
                     placeholder = { Text("Confirmar contraseña", color = Color(0xFF999999), fontSize = 15.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
+                    enabled = !isLoading,
+                    isError = passwordMismatch,
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -190,22 +213,48 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit) {
                     )
                 )
 
+                // Errores de validación / API
+                val errorMsg = when {
+                    passwordMismatch -> "Las contraseñas no coinciden"
+                    uiState is AuthUiState.Error -> (uiState as AuthUiState.Error).message
+                    else -> null
+                }
+                if (errorMsg != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = errorMsg, color = Color.Red, fontSize = 12.sp)
+                }
+
                 Spacer(modifier = Modifier.height(15.dp))
 
                 Button(
-                    onClick = { /* TODO: lógica de registro */ },
+                    onClick = {
+                        if (password != confirmPassword) {
+                            passwordMismatch = true
+                        } else {
+                            authViewModel.register(email, password)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
+                    enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = XoundNavy),
                     shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text(
-                        text = "Registrarse",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Registrarse",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
