@@ -24,15 +24,15 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    fun login(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            _uiState.value = AuthUiState.Error("Email y contraseña son requeridos")
+    fun login(username: String, password: String) {
+        if (username.isBlank() || password.isBlank()) {
+            _uiState.value = AuthUiState.Error("Username y contraseña son requeridos")
             return
         }
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             try {
-                val response = RetrofitClient.apiService.login(AuthRequest(email.trim(), password))
+                val response = RetrofitClient.apiService.login(AuthRequest(username.trim(), password))
                 val token = response.resolveToken()
                 SessionManager.saveSession(
                     token = token,

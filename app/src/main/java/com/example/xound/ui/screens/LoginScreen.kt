@@ -71,7 +71,7 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit = {},
     authViewModel: AuthViewModel = viewModel()
 ) {
-    var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -146,14 +146,13 @@ fun LoginScreen(
                 Text(text = "Ingresa tu cuenta", fontSize = 14.sp, color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = { Text("Email", color = Color(0xFF999999), fontSize = 16.sp) },
+                    value = username,
+                    onValueChange = { username = it },
+                    placeholder = { Text("Username", color = Color(0xFF999999), fontSize = 16.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     singleLine = true,
                     enabled = !isLoading,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = Color(0xFFE5E5E5),
                         focusedBorderColor = XoundNavy,
@@ -207,7 +206,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = { authViewModel.login(email, password) },
+                    onClick = { authViewModel.login(username, password) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
