@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.data.local.SessionManager
+import com.example.xound.ui.screens.AddSongScreen
 import com.example.xound.ui.screens.CreateEventScreen
 import com.example.xound.ui.screens.EventsScreen
 import com.example.xound.ui.screens.HomeScreen
@@ -42,6 +43,9 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = currentScreen == "createEvent") {
                     currentScreen = "events"
                 }
+                BackHandler(enabled = currentScreen == "addSong") {
+                    currentScreen = "home"
+                }
 
                 when (currentScreen) {
                     "login" -> LoginScreen(
@@ -60,7 +64,10 @@ class MainActivity : ComponentActivity() {
                             currentScreen = "login"
                         },
                         onNavigateToEvents = { currentScreen = "events" },
-                        onNavigateToLibrary = { currentScreen = "library" }
+                        onNavigateToLibrary = { currentScreen = "library" },
+                        onNavigateToAddSong = { currentScreen = "addSong" },
+                        eventViewModel = eventViewModel,
+                        songViewModel = songViewModel
                     )
                     "events" -> EventsScreen(
                         onBack = { currentScreen = "home" },
@@ -73,7 +80,11 @@ class MainActivity : ComponentActivity() {
                     )
                     "library" -> LibraryScreen(
                         onBack = { currentScreen = "home" },
+                        onAddSong = { currentScreen = "addSong" },
                         songViewModel = songViewModel
+                    )
+                    "addSong" -> AddSongScreen(
+                        onBack = { currentScreen = "home" }
                     )
                 }
             }

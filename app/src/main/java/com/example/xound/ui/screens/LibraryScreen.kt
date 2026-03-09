@@ -38,6 +38,7 @@ private val thumbnailColors = listOf(
 @Composable
 fun LibraryScreen(
     onBack: () -> Unit = {},
+    onAddSong: () -> Unit = {},
     songViewModel: SongViewModel = viewModel()
 ) {
     val songs by songViewModel.songs.collectAsState()
@@ -103,7 +104,7 @@ fun LibraryScreen(
 
             // Add button
             IconButton(
-                onClick = { /* TODO: navigate to add song */ },
+                onClick = onAddSong,
                 modifier = Modifier
                     .padding(top = 8.dp)
                     .size(40.dp)

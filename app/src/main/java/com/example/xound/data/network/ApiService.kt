@@ -3,7 +3,9 @@ package com.example.xound.data.network
 import com.example.xound.data.model.AuthRequest
 import com.example.xound.data.model.AuthResponse
 import com.example.xound.data.model.CreateEventRequest
+import com.example.xound.data.model.CreateSongRequest
 import com.example.xound.data.model.EventResponse
+import com.example.xound.data.model.LyricsResponse
 import com.example.xound.data.model.RegisterRequest
 import com.example.xound.data.model.SetlistSongResponse
 import com.example.xound.data.model.SongResponse
@@ -49,4 +51,19 @@ interface ApiService {
 
     @POST("api/favorites/{songId}")
     suspend fun toggleFavorite(@Path("songId") songId: Long): Any
+
+    // Create song
+    @POST("api/songs")
+    suspend fun createSong(@Body request: CreateSongRequest): SongResponse
+
+    // Lyrics
+    @GET("api/lyrics/search")
+    suspend fun searchLyrics(@Query("artist") artist: String, @Query("title") title: String): LyricsResponse
+
+    // Chords
+    @GET("api/chords/search")
+    suspend fun searchChords(@Query("q") query: String): List<Map<String, String>>
+
+    @GET("api/chords/fetch")
+    suspend fun fetchChords(@Query("url") url: String): Map<String, String>
 }
