@@ -14,10 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.xound.data.network.CoverArtService
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.data.model.SongResponse
 import com.example.xound.ui.theme.XoundNavy
@@ -237,6 +240,14 @@ fun LibraryScreen(
 
 @Composable
 private fun SongCard(song: SongResponse, colorIndex: Int) {
+    var coverUrl by remember { mutableStateOf<String?>(null) }
+    var coverLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(song.id) {
+        coverUrl = CoverArtService.getCoverUrl(song.artist, song.title)
+        coverLoaded = true
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -249,7 +260,7 @@ private fun SongCard(song: SongResponse, colorIndex: Int) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Thumbnail
+            // Thumbnail - cover art or fallback
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -257,12 +268,21 @@ private fun SongCard(song: SongResponse, colorIndex: Int) {
                     .background(thumbnailColors[colorIndex]),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(24.dp)
-                )
+                if (coverUrl != null) {
+                    AsyncImage(
+                        model = coverUrl,
+                        contentDescription = song.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
