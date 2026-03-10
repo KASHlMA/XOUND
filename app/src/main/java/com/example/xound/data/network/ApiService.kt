@@ -10,6 +10,7 @@ import com.example.xound.data.model.RegisterRequest
 import com.example.xound.data.model.SetlistSongResponse
 import com.example.xound.data.model.SongResponse
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -31,12 +32,24 @@ interface ApiService {
     @POST("api/events")
     suspend fun createEvent(@Body request: CreateEventRequest): EventResponse
 
+    @PUT("api/events/{id}")
+    suspend fun updateEvent(@Path("id") id: Long, @Body request: CreateEventRequest): EventResponse
+
     @PUT("api/events/{id}/publish")
     suspend fun togglePublish(@Path("id") id: Long): EventResponse
+
+    @DELETE("api/events/{id}")
+    suspend fun deleteEvent(@Path("id") id: Long): Any
 
     // Setlist
     @GET("api/events/{eventId}/setlist")
     suspend fun getSetlist(@Path("eventId") eventId: Long): List<SetlistSongResponse>
+
+    @POST("api/events/{eventId}/setlist")
+    suspend fun addToSetlist(@Path("eventId") eventId: Long, @Body body: Map<String, Long>): Any
+
+    @DELETE("api/events/{eventId}/setlist/{songId}")
+    suspend fun removeFromSetlist(@Path("eventId") eventId: Long, @Path("songId") songId: Long): Any
 
     // Songs
     @GET("api/songs")
@@ -52,9 +65,15 @@ interface ApiService {
     @POST("api/favorites/{songId}")
     suspend fun toggleFavorite(@Path("songId") songId: Long): Any
 
-    // Create song
+    // Create / Update / Delete song
     @POST("api/songs")
     suspend fun createSong(@Body request: CreateSongRequest): SongResponse
+
+    @PUT("api/songs/{id}")
+    suspend fun updateSong(@Path("id") id: Long, @Body request: CreateSongRequest): SongResponse
+
+    @DELETE("api/songs/{id}")
+    suspend fun deleteSong(@Path("id") id: Long): Any
 
     // Lyrics
     @GET("api/lyrics/search")

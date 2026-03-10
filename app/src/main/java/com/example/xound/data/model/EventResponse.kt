@@ -22,5 +22,6 @@ data class SetlistSongResponse(
     val id: Long = 0,
     val eventId: Long = 0,
     val songId: Long = 0,
-    val position: Int = 0
+    val position: Int = 0,
+    val song: SongResponse? = null
 )

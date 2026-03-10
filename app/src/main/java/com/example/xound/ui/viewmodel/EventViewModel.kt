@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.xound.data.model.CreateEventRequest
 import com.example.xound.data.model.EventResponse
+import com.example.xound.data.model.SetlistSongResponse
+import com.example.xound.data.model.SongResponse
 import com.example.xound.data.network.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,13 @@ sealed class CreateEventState {
     data class Error(val message: String) : CreateEventState()
 }
 
+sealed class EditEventState {
+    object Idle : EditEventState()
+    object Loading : EditEventState()
+    object Success : EditEventState()
+    data class Error(val message: String) : EditEventState()
+}
+
 class EventViewModel : ViewModel() {
 
     private val _events = MutableStateFlow<List<EventWithSetlistCount>>(emptyList())
@@ -36,6 +45,20 @@ class EventViewModel : ViewModel() {
 
     private val _createState = MutableStateFlow<CreateEventState>(CreateEventState.Idle)
     val createState: StateFlow<CreateEventState> = _createState.asStateFlow()
+
+    private val _editState = MutableStateFlow<EditEventState>(EditEventState.Idle)
+    val editState: StateFlow<EditEventState> = _editState.asStateFlow()
+
+    // Setlist for event detail
+    private val _setlistSongs = MutableStateFlow<List<SetlistSongResponse>>(emptyList())
+    val setlistSongs: StateFlow<List<SetlistSongResponse>> = _setlistSongs.asStateFlow()
+
+    private val _setlistLoading = MutableStateFlow(false)
+    val setlistLoading: StateFlow<Boolean> = _setlistLoading.asStateFlow()
+
+    // All songs for adding to setlist
+    private val _allSongs = MutableStateFlow<List<SongResponse>>(emptyList())
+    val allSongs: StateFlow<List<SongResponse>> = _allSongs.asStateFlow()
 
     fun fetchEvents() {
         viewModelScope.launch {
@@ -83,6 +106,39 @@ class EventViewModel : ViewModel() {
         }
     }
 
+    fun updateEvent(id: Long, title: String, eventDate: String?, venue: String?) {
+        if (title.isBlank()) {
+            _editState.value = EditEventState.Error("El nombre del evento es requerido")
+            return
+        }
+        viewModelScope.launch {
+            _editState.value = EditEventState.Loading
+            try {
+                RetrofitClient.apiService.updateEvent(
+                    id,
+                    CreateEventRequest(title.trim(), eventDate, venue?.trim())
+                )
+                _editState.value = EditEventState.Success
+            } catch (e: HttpException) {
+                val body = e.response()?.errorBody()?.string()
+                _editState.value = EditEventState.Error("Error ${e.code()}: ${body ?: e.message()}")
+            } catch (e: Exception) {
+                _editState.value = EditEventState.Error(e.message ?: "Error de conexión")
+            }
+        }
+    }
+
+    fun deleteEvent(eventId: Long) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.apiService.deleteEvent(eventId)
+                _events.value = _events.value.filter { it.event.id != eventId }
+            } catch (_: Exception) {
+                _error.value = "Error al ocultar el evento"
+            }
+        }
+    }
+
     fun publishEvent(id: Long) {
         viewModelScope.launch {
             try {
@@ -95,7 +151,75 @@ class EventViewModel : ViewModel() {
         }
     }
 
+    fun togglePublishFromDetail(id: Long) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.apiService.togglePublish(id)
+            } catch (_: Exception) {
+                _error.value = "Error al publicar"
+            }
+        }
+    }
+
+    // Setlist management
+    fun fetchSetlist(eventId: Long) {
+        viewModelScope.launch {
+            _setlistLoading.value = true
+            try {
+                val setlist = RetrofitClient.apiService.getSetlist(eventId)
+                _setlistSongs.value = setlist
+
+                // If songs don't come embedded, fetch them
+                if (setlist.isNotEmpty() && setlist.first().song == null) {
+                    val songs = RetrofitClient.apiService.getSongs()
+                    val songMap = songs.associateBy { it.id }
+                    _setlistSongs.value = setlist.map { item ->
+                        item.copy(song = songMap[item.songId])
+                    }
+                }
+            } catch (_: Exception) {
+                _setlistSongs.value = emptyList()
+            } finally {
+                _setlistLoading.value = false
+            }
+        }
+    }
+
+    fun fetchAllSongs() {
+        viewModelScope.launch {
+            try {
+                _allSongs.value = RetrofitClient.apiService.getSongs()
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun addSongToSetlist(eventId: Long, songId: Long) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.apiService.addToSetlist(eventId, mapOf("songId" to songId))
+                fetchSetlist(eventId)
+            } catch (_: Exception) {
+                _error.value = "Error al agregar canción"
+            }
+        }
+    }
+
+    fun removeSongFromSetlist(eventId: Long, songId: Long) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.apiService.removeFromSetlist(eventId, songId)
+                _setlistSongs.value = _setlistSongs.value.filter { it.songId != songId }
+            } catch (_: Exception) {
+                _error.value = "Error al quitar canción"
+            }
+        }
+    }
+
     fun resetCreateState() {
         _createState.value = CreateEventState.Idle
+    }
+
+    fun resetEditState() {
+        _editState.value = EditEventState.Idle
     }
 }

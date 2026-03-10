@@ -1,5 +1,6 @@
 package com.example.xound.ui.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,13 +8,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,21 +30,66 @@ import java.util.Locale
 
 private val XoundCream = Color(0xFFF5F0E8)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
     onBack: () -> Unit = {},
     onCreateEvent: () -> Unit = {},
+    onEventClick: (EventResponse) -> Unit = {},
+    onEditEvent: (EventResponse) -> Unit = {},
     eventViewModel: EventViewModel = viewModel()
 ) {
     val events by eventViewModel.events.collectAsState()
     val isLoading by eventViewModel.isLoading.collectAsState()
     val error by eventViewModel.error.collectAsState()
 
+    var eventToDelete by remember { mutableStateOf<EventResponse?>(null) }
+
     LaunchedEffect(Unit) {
         eventViewModel.fetchEvents()
     }
 
     val upcomingCount = events.count { getEventStatus(it.event) == "Próximo" }
+
+    // Delete confirmation dialog
+    if (eventToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { eventToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Ocultar evento",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("¿Estás seguro de que quieres ocultar \"${eventToDelete?.title}\"? El evento no se eliminará permanentemente.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        eventToDelete?.let { eventViewModel.deleteEvent(it.id) }
+                        eventToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("Ocultar", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { eventToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -112,8 +157,13 @@ fun EventsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    items(events) { eventItem ->
-                        EventCard(eventItem)
+                    items(events, key = { it.event.id }) { eventItem ->
+                        SwipeableEventCard(
+                            eventItem = eventItem,
+                            onClick = { onEventClick(eventItem.event) },
+                            onDelete = { eventToDelete = eventItem.event },
+                            onEdit = { onEditEvent(eventItem.event) }
+                        )
                     }
 
                     if (events.isEmpty()) {
@@ -162,8 +212,83 @@ fun EventsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EventCard(eventItem: EventWithSetlistCount) {
+private fun SwipeableEventCard(
+    eventItem: EventWithSetlistCount,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onDelete()
+                    false
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onEdit()
+                    false
+                }
+                else -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+
+            val backgroundColor by animateColorAsState(
+                targetValue = when (direction) {
+                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFE53935)
+                    SwipeToDismissBoxValue.StartToEnd -> Color(0xFF2196F3)
+                    else -> Color.Transparent
+                },
+                label = "swipeBg"
+            )
+
+            val icon = when (direction) {
+                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Edit
+                else -> null
+            }
+
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                else -> Alignment.Center
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(backgroundColor)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = alignment
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true
+    ) {
+        EventCard(eventItem = eventItem, onClick = onClick)
+    }
+}
+
+@Composable
+private fun EventCard(eventItem: EventWithSetlistCount, onClick: () -> Unit = {}) {
     val event = eventItem.event
     val status = getEventStatus(event)
     val formattedDate = formatEventDate(event.eventDate)
@@ -171,7 +296,8 @@ private fun EventCard(eventItem: EventWithSetlistCount) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = XoundNavy)
+        colors = CardDefaults.cardColors(containerColor = XoundNavy),
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

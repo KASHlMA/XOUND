@@ -82,4 +82,15 @@ class SongViewModel : ViewModel() {
             }
         }
     }
+
+    fun deleteSong(songId: Long) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.apiService.deleteSong(songId)
+                _songs.value = _songs.value.filter { it.id != songId }
+            } catch (_: Exception) {
+                _error.value = "Error al ocultar la canción"
+            }
+        }
+    }
 }
