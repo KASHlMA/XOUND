@@ -30,6 +30,7 @@ data class SetlistSongResponse(
     val songArtist: String? = null,
     val songTone: String? = null,
     val songContent: String? = null,
+    val songLyrics: String? = null,
     val songNotes: String? = null,
     val songBpm: Int? = null,
     val songTimeSignature: String? = null
@@ -44,7 +45,7 @@ data class SetlistSongResponse(
             artist = songArtist,
             tone = songTone,
             content = songContent,
-            lyrics = songContent,
+            lyrics = songLyrics ?: songContent,
             notes = songNotes,
             bpm = songBpm,
             timeSignature = songTimeSignature

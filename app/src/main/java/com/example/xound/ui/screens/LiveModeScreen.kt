@@ -313,6 +313,40 @@ fun LiveModeScreen(
                         color = Color(0xFF888888)
                     )
 
+                    // Next song preview
+                    val nextSong = if (currentIndex < setlistSongs.size - 1) {
+                        setlistSongs[currentIndex + 1].song
+                    } else null
+
+                    if (nextSong != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Siguiente: ",
+                                fontSize = 11.sp,
+                                color = Color(0xFFAAAAAA)
+                            )
+                            Text(
+                                text = nextSong.title,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = XoundYellow,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    } else if (currentIndex == setlistSongs.size - 1) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Última canción",
+                            fontSize = 11.sp,
+                            color = Color(0xFFAAAAAA)
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(

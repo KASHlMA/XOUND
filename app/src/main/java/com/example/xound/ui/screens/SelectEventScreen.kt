@@ -31,6 +31,7 @@ private val XoundCream = Color(0xFFF5F0E8)
 fun SelectEventScreen(
     onBack: () -> Unit = {},
     onSelectEvent: (EventResponse) -> Unit = {},
+    onPreviewEvent: (EventResponse) -> Unit = {},
     eventViewModel: EventViewModel
 ) {
     val events by eventViewModel.events.collectAsState()
@@ -123,7 +124,8 @@ fun SelectEventScreen(
                 items(eventsWithSongs, key = { it.event.id }) { eventItem ->
                     SelectEventCard(
                         eventItem = eventItem,
-                        onClick = { onSelectEvent(eventItem.event) }
+                        onClick = { onSelectEvent(eventItem.event) },
+                        onPreview = { onPreviewEvent(eventItem.event) }
                     )
                 }
             }
@@ -132,7 +134,7 @@ fun SelectEventScreen(
 }
 
 @Composable
-private fun SelectEventCard(eventItem: EventWithSetlistCount, onClick: () -> Unit) {
+private fun SelectEventCard(eventItem: EventWithSetlistCount, onClick: () -> Unit, onPreview: () -> Unit) {
     val event = eventItem.event
     val formattedDate = formatSelectDate(event.eventDate)
 
@@ -186,12 +188,23 @@ private fun SelectEventCard(eventItem: EventWithSetlistCount, onClick: () -> Uni
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = XoundYellow,
-                modifier = Modifier.size(24.dp)
-            )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // "Ver" button
+            Button(
+                onClick = onPreview,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = XoundYellow),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(
+                    text = "Ver",
+                    color = XoundNavy,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }

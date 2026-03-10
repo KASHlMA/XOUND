@@ -66,8 +66,11 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = currentScreen == "selectEventLive") {
                     currentScreen = "home"
                 }
-                BackHandler(enabled = currentScreen == "liveMode") {
+                BackHandler(enabled = currentScreen == "setlistPreview") {
                     currentScreen = "selectEventLive"
+                }
+                BackHandler(enabled = currentScreen == "liveMode") {
+                    currentScreen = "setlistPreview"
                 }
 
                 when (currentScreen) {
@@ -205,14 +208,29 @@ class MainActivity : ComponentActivity() {
                             liveEvent = event
                             currentScreen = "liveMode"
                         },
+                        onPreviewEvent = { event ->
+                            liveEvent = event
+                            currentScreen = "setlistPreview"
+                        },
                         eventViewModel = eventViewModel
                     )
+                    "setlistPreview" -> liveEvent?.let { event ->
+                        SetlistPreviewScreen(
+                            event = event,
+                            onBack = {
+                                currentScreen = "selectEventLive"
+                            },
+                            onStartLive = {
+                                currentScreen = "liveMode"
+                            },
+                            eventViewModel = eventViewModel
+                        )
+                    }
                     "liveMode" -> liveEvent?.let { event ->
                         LiveModeScreen(
                             event = event,
                             onBack = {
-                                currentScreen = "selectEventLive"
-                                liveEvent = null
+                                currentScreen = "setlistPreview"
                             },
                             eventViewModel = eventViewModel
                         )
