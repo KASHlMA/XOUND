@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
                 var selectedEvent by remember { mutableStateOf<EventResponse?>(null) }
                 var eventToEdit by remember { mutableStateOf<EventResponse?>(null) }
                 var showAddToSetlist by remember { mutableStateOf(false) }
+                var eventDetailOrigin by remember { mutableStateOf("events") }
 
                 // Back handlers
                 BackHandler(enabled = currentScreen == "register") {
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
                     currentScreen = "library"
                 }
                 BackHandler(enabled = currentScreen == "eventDetail") {
-                    currentScreen = "events"
+                    currentScreen = eventDetailOrigin
                 }
                 BackHandler(enabled = currentScreen == "editEvent") {
                     currentScreen = "events"
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
                         onNavigateToAddSong = { currentScreen = "addSong" },
                         onEventClick = { event ->
                             selectedEvent = event
+                            eventDetailOrigin = "home"
                             currentScreen = "eventDetail"
                         },
                         eventViewModel = eventViewModel,
@@ -87,6 +89,7 @@ class MainActivity : ComponentActivity() {
                         onCreateEvent = { currentScreen = "createEvent" },
                         onEventClick = { event ->
                             selectedEvent = event
+                            eventDetailOrigin = "events"
                             currentScreen = "eventDetail"
                         },
                         onEditEvent = { event ->
@@ -119,7 +122,7 @@ class MainActivity : ComponentActivity() {
                         EventDetailScreen(
                             event = event,
                             onBack = {
-                                currentScreen = "events"
+                                currentScreen = eventDetailOrigin
                                 selectedEvent = null
                             },
                             onAddSongToSetlist = {
