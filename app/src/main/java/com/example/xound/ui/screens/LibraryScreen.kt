@@ -1,7 +1,9 @@
 package com.example.xound.ui.screens
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -27,6 +32,8 @@ import com.example.xound.data.model.SongResponse
 import com.example.xound.ui.theme.XoundNavy
 import com.example.xound.ui.theme.XoundYellow
 import com.example.xound.ui.viewmodel.SongViewModel
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private val XoundCream = Color(0xFFF5F0E8)
 
@@ -44,6 +51,7 @@ fun LibraryScreen(
     onBack: () -> Unit = {},
     onAddSong: () -> Unit = {},
     onEditSong: (SongResponse) -> Unit = {},
+    onViewSong: (SongResponse) -> Unit = {},
     songViewModel: SongViewModel = viewModel()
 ) {
     val songs by songViewModel.songs.collectAsState()
@@ -52,7 +60,7 @@ fun LibraryScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("Todas") }
-    val filters = listOf("Todas", "Favoritos", "Recientes", "Por clave")
+    val filters = listOf("Todas", "Favoritos", "Recientes", "Tonalidad")
 
     // Delete confirmation dialog
     var songToDelete by remember { mutableStateOf<SongResponse?>(null) }
@@ -261,7 +269,8 @@ fun LibraryScreen(
                         isFavorite = favorites.contains(song.id),
                         onToggleFavorite = { songViewModel.toggleFavorite(song.id) },
                         onDelete = { songToDelete = song },
-                        onEdit = { onEditSong(song) }
+                        onEdit = { onEditSong(song) },
+                        onClick = { onViewSong(song) }
                     )
                 }
 
@@ -285,7 +294,6 @@ fun LibraryScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableSongCard(
     song: SongResponse,
@@ -293,82 +301,102 @@ private fun SwipeableSongCard(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onClick: () -> Unit = {}
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
-                    false // Don't dismiss, show dialog first
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    onEdit()
-                    false // Don't dismiss, navigate to edit
-                }
-                else -> false
-            }
-        }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var cardWidth by remember { mutableFloatStateOf(1f) }
+    val threshold = 0.35f
+    var actionTriggered by remember { mutableStateOf(false) }
+
+    val animatedOffset by animateFloatAsState(
+        targetValue = offsetX,
+        animationSpec = tween(durationMillis = if (offsetX == 0f) 300 else 0),
+        label = "swipeOffset"
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val direction = dismissState.dismissDirection
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+    ) {
+        // Background
+        val bgColor = when {
+            animatedOffset < -20f -> Color(0xFFE53935)
+            animatedOffset > 20f -> Color(0xFF2196F3)
+            else -> Color.Transparent
+        }
+        val bgIcon = when {
+            animatedOffset < -20f -> Icons.Default.Delete
+            animatedOffset > 20f -> Icons.Default.Edit
+            else -> null
+        }
+        val bgAlignment = when {
+            animatedOffset < 0f -> Alignment.CenterEnd
+            animatedOffset > 0f -> Alignment.CenterStart
+            else -> Alignment.Center
+        }
 
-            val backgroundColor by animateColorAsState(
-                targetValue = when (direction) {
-                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFE53935) // Red for delete
-                    SwipeToDismissBoxValue.StartToEnd -> Color(0xFF2196F3) // Blue for edit
-                    else -> Color.Transparent
-                },
-                label = "swipeBg"
-            )
-
-            val icon = when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
-                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Edit
-                else -> null
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(bgColor)
+                .padding(horizontal = 24.dp),
+            contentAlignment = bgAlignment
+        ) {
+            if (bgIcon != null) {
+                Icon(
+                    imageVector = bgIcon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
+        }
 
-            val alignment = when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                else -> Alignment.Center
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(backgroundColor)
-                    .padding(horizontal = 24.dp),
-                contentAlignment = alignment
-            ) {
-                if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+        // Foreground card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    cardWidth = size.width.toFloat()
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            actionTriggered = false
+                        },
+                        onDragEnd = {
+                            val ratio = abs(offsetX) / cardWidth
+                            if (ratio >= threshold && !actionTriggered) {
+                                actionTriggered = true
+                                if (offsetX < 0) onDelete() else onEdit()
+                            }
+                            offsetX = 0f
+                        },
+                        onDragCancel = {
+                            offsetX = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            val newOffset = offsetX + dragAmount
+                            // Limit to half the card width
+                            offsetX = newOffset.coerceIn(-cardWidth * threshold, cardWidth * threshold)
+                        }
                     )
                 }
-            }
-        },
-        enableDismissFromStartToEnd = true,
-        enableDismissFromEndToStart = true
-    ) {
-        SongCard(
-            song = song,
-            colorIndex = colorIndex,
-            isFavorite = isFavorite,
-            onToggleFavorite = onToggleFavorite
-        )
+        ) {
+            SongCard(
+                song = song,
+                colorIndex = colorIndex,
+                isFavorite = isFavorite,
+                onToggleFavorite = onToggleFavorite,
+                onClick = onClick
+            )
+        }
     }
 }
 
 @Composable
-private fun SongCard(song: SongResponse, colorIndex: Int, isFavorite: Boolean = false, onToggleFavorite: () -> Unit = {}) {
+private fun SongCard(song: SongResponse, colorIndex: Int, isFavorite: Boolean = false, onToggleFavorite: () -> Unit = {}, onClick: () -> Unit = {}) {
     var coverUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(song.id) {
@@ -379,7 +407,8 @@ private fun SongCard(song: SongResponse, colorIndex: Int, isFavorite: Boolean = 
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

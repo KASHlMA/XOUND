@@ -1,7 +1,9 @@
 package com.example.xound.ui.screens
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,11 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import coil.compose.AsyncImage
 import com.example.xound.data.model.EventResponse
 import com.example.xound.data.network.CoverArtService
@@ -49,6 +55,7 @@ fun EventDetailScreen(
     event: EventResponse,
     onBack: () -> Unit = {},
     onAddSongToSetlist: () -> Unit = {},
+    onViewSong: (SongResponse) -> Unit = {},
     eventViewModel: EventViewModel
 ) {
     val setlistSongs by eventViewModel.setlistSongs.collectAsState()
@@ -268,7 +275,8 @@ fun EventDetailScreen(
                     SwipeableSetlistCard(
                         setlistItem = setlistItem,
                         colorIndex = (setlistItem.songId % instrumentColors.size).toInt(),
-                        onRemove = { songToRemove = setlistItem }
+                        onRemove = { songToRemove = setlistItem },
+                        onClick = { setlistItem.song?.let { onViewSong(it) } }
                     )
                 }
 
@@ -291,62 +299,88 @@ fun EventDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableSetlistCard(
     setlistItem: SetlistSongResponse,
     colorIndex: Int,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onClick: () -> Unit = {}
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onRemove()
-            }
-            false
-        }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var cardWidth by remember { mutableFloatStateOf(1f) }
+    val threshold = 0.35f
+    var actionTriggered by remember { mutableStateOf(false) }
+
+    val animatedOffset by animateFloatAsState(
+        targetValue = offsetX,
+        animationSpec = tween(durationMillis = if (offsetX == 0f) 300 else 0),
+        label = "swipeOffset"
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val direction = dismissState.dismissDirection
-            val backgroundColor by animateColorAsState(
-                targetValue = if (direction == SwipeToDismissBoxValue.EndToStart) Color(0xFFE53935)
-                else Color.Transparent,
-                label = "swipeBg"
-            )
-
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+    ) {
+        // Background - only left swipe (delete)
+        if (animatedOffset < -20f) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(backgroundColor)
+                    .matchParentSize()
+                    .background(Color(0xFFE53935))
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                if (direction == SwipeToDismissBoxValue.EndToStart) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        // Foreground card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    cardWidth = size.width.toFloat()
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            actionTriggered = false
+                        },
+                        onDragEnd = {
+                            val ratio = abs(offsetX) / cardWidth
+                            if (ratio >= threshold && offsetX < 0 && !actionTriggered) {
+                                actionTriggered = true
+                                onRemove()
+                            }
+                            offsetX = 0f
+                        },
+                        onDragCancel = {
+                            offsetX = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            val newOffset = offsetX + dragAmount
+                            // Only allow left swipe, limit to half
+                            offsetX = newOffset.coerceIn(-cardWidth * threshold, 0f)
+                        }
                     )
                 }
-            }
-        },
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true
-    ) {
-        SetlistSongCard(
-            setlistItem = setlistItem,
-            colorIndex = colorIndex
-        )
+        ) {
+            SetlistSongCard(
+                setlistItem = setlistItem,
+                colorIndex = colorIndex,
+                onClick = onClick
+            )
+        }
     }
 }
 
 @Composable
-private fun SetlistSongCard(setlistItem: SetlistSongResponse, colorIndex: Int) {
+private fun SetlistSongCard(setlistItem: SetlistSongResponse, colorIndex: Int, onClick: () -> Unit = {}) {
     val song = setlistItem.song
     var coverUrl by remember { mutableStateOf<String?>(null) }
 
@@ -357,7 +391,8 @@ private fun SetlistSongCard(setlistItem: SetlistSongResponse, colorIndex: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = XoundNavy)
+        colors = CardDefaults.cardColors(containerColor = XoundNavy),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

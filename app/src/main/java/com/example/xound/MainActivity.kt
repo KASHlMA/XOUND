@@ -29,10 +29,12 @@ class MainActivity : ComponentActivity() {
                 val initialScreen = if (SessionManager.isLoggedIn()) "home" else "login"
                 var currentScreen by remember { mutableStateOf(initialScreen) }
                 var songToEdit by remember { mutableStateOf<SongResponse?>(null) }
+                var songToView by remember { mutableStateOf<SongResponse?>(null) }
                 var selectedEvent by remember { mutableStateOf<EventResponse?>(null) }
                 var eventToEdit by remember { mutableStateOf<EventResponse?>(null) }
                 var showAddToSetlist by remember { mutableStateOf(false) }
                 var eventDetailOrigin by remember { mutableStateOf("events") }
+                var viewSongOrigin by remember { mutableStateOf("library") }
 
                 // Back handlers
                 BackHandler(enabled = currentScreen == "register") {
@@ -49,6 +51,9 @@ class MainActivity : ComponentActivity() {
                 }
                 BackHandler(enabled = currentScreen == "editSong") {
                     currentScreen = "library"
+                }
+                BackHandler(enabled = currentScreen == "viewSong") {
+                    currentScreen = viewSongOrigin
                 }
                 BackHandler(enabled = currentScreen == "eventDetail") {
                     currentScreen = eventDetailOrigin
@@ -129,6 +134,11 @@ class MainActivity : ComponentActivity() {
                                 eventViewModel.fetchAllSongs()
                                 showAddToSetlist = true
                             },
+                            onViewSong = { song ->
+                                songToView = song
+                                viewSongOrigin = "eventDetail"
+                                currentScreen = "viewSong"
+                            },
                             eventViewModel = eventViewModel
                         )
                     }
@@ -149,11 +159,25 @@ class MainActivity : ComponentActivity() {
                             songToEdit = song
                             currentScreen = "editSong"
                         },
+                        onViewSong = { song ->
+                            songToView = song
+                            viewSongOrigin = "library"
+                            currentScreen = "viewSong"
+                        },
                         songViewModel = songViewModel
                     )
                     "addSong" -> AddSongScreen(
                         onBack = { currentScreen = "home" }
                     )
+                    "viewSong" -> songToView?.let { song ->
+                        ViewSongScreen(
+                            song = song,
+                            onBack = {
+                                currentScreen = viewSongOrigin
+                                songToView = null
+                            }
+                        )
+                    }
                     "editSong" -> songToEdit?.let { song ->
                         EditSongScreen(
                             song = song,

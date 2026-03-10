@@ -1,7 +1,9 @@
 package com.example.xound.ui.screens
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.data.model.EventResponse
 import com.example.xound.ui.theme.XoundNavy
@@ -212,7 +218,6 @@ fun EventsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableEventCard(
     eventItem: EventWithSetlistCount,
@@ -220,70 +225,87 @@ private fun SwipeableEventCard(
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
-                    false
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    onEdit()
-                    false
-                }
-                else -> false
-            }
-        }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var cardWidth by remember { mutableFloatStateOf(1f) }
+    val threshold = 0.35f
+    var actionTriggered by remember { mutableStateOf(false) }
+
+    val animatedOffset by animateFloatAsState(
+        targetValue = offsetX,
+        animationSpec = tween(durationMillis = if (offsetX == 0f) 300 else 0),
+        label = "swipeOffset"
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val direction = dismissState.dismissDirection
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+    ) {
+        // Background
+        val bgColor = when {
+            animatedOffset < -20f -> Color(0xFFE53935)
+            animatedOffset > 20f -> Color(0xFF2196F3)
+            else -> Color.Transparent
+        }
+        val bgIcon = when {
+            animatedOffset < -20f -> Icons.Default.Delete
+            animatedOffset > 20f -> Icons.Default.Edit
+            else -> null
+        }
+        val bgAlignment = when {
+            animatedOffset < 0f -> Alignment.CenterEnd
+            animatedOffset > 0f -> Alignment.CenterStart
+            else -> Alignment.Center
+        }
 
-            val backgroundColor by animateColorAsState(
-                targetValue = when (direction) {
-                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFE53935)
-                    SwipeToDismissBoxValue.StartToEnd -> Color(0xFF2196F3)
-                    else -> Color.Transparent
-                },
-                label = "swipeBg"
-            )
-
-            val icon = when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
-                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Edit
-                else -> null
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(bgColor)
+                .padding(horizontal = 24.dp),
+            contentAlignment = bgAlignment
+        ) {
+            if (bgIcon != null) {
+                Icon(
+                    imageVector = bgIcon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
+        }
 
-            val alignment = when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                else -> Alignment.Center
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(backgroundColor)
-                    .padding(horizontal = 24.dp),
-                contentAlignment = alignment
-            ) {
-                if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+        // Foreground card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    cardWidth = size.width.toFloat()
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            actionTriggered = false
+                        },
+                        onDragEnd = {
+                            val ratio = abs(offsetX) / cardWidth
+                            if (ratio >= threshold && !actionTriggered) {
+                                actionTriggered = true
+                                if (offsetX < 0) onDelete() else onEdit()
+                            }
+                            offsetX = 0f
+                        },
+                        onDragCancel = {
+                            offsetX = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            val newOffset = offsetX + dragAmount
+                            offsetX = newOffset.coerceIn(-cardWidth * threshold, cardWidth * threshold)
+                        }
                     )
                 }
-            }
-        },
-        enableDismissFromStartToEnd = true,
-        enableDismissFromEndToStart = true
-    ) {
-        EventCard(eventItem = eventItem, onClick = onClick)
+        ) {
+            EventCard(eventItem = eventItem, onClick = onClick)
+        }
     }
 }
 
