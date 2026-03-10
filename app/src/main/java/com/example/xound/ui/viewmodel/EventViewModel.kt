@@ -56,6 +56,9 @@ class EventViewModel : ViewModel() {
     private val _setlistLoading = MutableStateFlow(false)
     val setlistLoading: StateFlow<Boolean> = _setlistLoading.asStateFlow()
 
+    private val _publishDone = MutableStateFlow(false)
+    val publishDone: StateFlow<Boolean> = _publishDone.asStateFlow()
+
     // All songs for adding to setlist
     private val _allSongs = MutableStateFlow<List<SongResponse>>(emptyList())
     val allSongs: StateFlow<List<SongResponse>> = _allSongs.asStateFlow()
@@ -155,10 +158,16 @@ class EventViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 RetrofitClient.apiService.togglePublish(id)
+                fetchEvents()
+                _publishDone.value = true
             } catch (_: Exception) {
                 _error.value = "Error al publicar"
             }
         }
+    }
+
+    fun resetPublishDone() {
+        _publishDone.value = false
     }
 
     // Setlist management

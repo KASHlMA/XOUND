@@ -75,6 +75,10 @@ class MainActivity : ComponentActivity() {
                         onNavigateToEvents = { currentScreen = "events" },
                         onNavigateToLibrary = { currentScreen = "library" },
                         onNavigateToAddSong = { currentScreen = "addSong" },
+                        onEventClick = { event ->
+                            selectedEvent = event
+                            currentScreen = "eventDetail"
+                        },
                         eventViewModel = eventViewModel,
                         songViewModel = songViewModel
                     )

@@ -15,11 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.xound.data.model.EventResponse
+import com.example.xound.data.network.CoverArtService
 import com.example.xound.data.model.SetlistSongResponse
 import com.example.xound.data.model.SongResponse
 import com.example.xound.ui.theme.XoundNavy
@@ -52,9 +55,17 @@ fun EventDetailScreen(
     val setlistLoading by eventViewModel.setlistLoading.collectAsState()
 
     var songToRemove by remember { mutableStateOf<SetlistSongResponse?>(null) }
+    val publishDone by eventViewModel.publishDone.collectAsState()
 
     LaunchedEffect(event.id) {
         eventViewModel.fetchSetlist(event.id)
+    }
+
+    LaunchedEffect(publishDone) {
+        if (publishDone) {
+            eventViewModel.resetPublishDone()
+            onBack()
+        }
     }
 
     val formattedDate = formatDetailDate(event.eventDate)
@@ -337,6 +348,11 @@ private fun SwipeableSetlistCard(
 @Composable
 private fun SetlistSongCard(setlistItem: SetlistSongResponse, colorIndex: Int) {
     val song = setlistItem.song
+    var coverUrl by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(setlistItem.songId) {
+        coverUrl = CoverArtService.getCoverUrl(song?.artist, song?.title ?: "")
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -349,20 +365,29 @@ private fun SetlistSongCard(setlistItem: SetlistSongResponse, colorIndex: Int) {
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Instrument icon placeholder
+            // Cover art / fallback icon
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(instrumentColors[colorIndex].copy(alpha = 0.3f)),
+                    .background(instrumentColors[colorIndex]),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = XoundYellow,
-                    modifier = Modifier.size(22.dp)
-                )
+                if (coverUrl != null) {
+                    AsyncImage(
+                        model = coverUrl,
+                        contentDescription = song?.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))

@@ -39,6 +39,7 @@ fun HomeScreen(
     onNavigateToEvents: () -> Unit = {},
     onNavigateToLibrary: () -> Unit = {},
     onNavigateToAddSong: () -> Unit = {},
+    onEventClick: (EventResponse) -> Unit = {},
     eventViewModel: EventViewModel = viewModel(),
     songViewModel: SongViewModel = viewModel()
 ) {
@@ -205,7 +206,10 @@ fun HomeScreen(
         } else {
             // Show last 3 events
             events.take(3).forEach { eventItem ->
-                RecentEventCard(eventItem.event)
+                RecentEventCard(
+                    event = eventItem.event,
+                    onClick = { onEventClick(eventItem.event) }
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -213,15 +217,21 @@ fun HomeScreen(
 }
 
 @Composable
-private fun RecentEventCard(event: EventResponse) {
+private fun RecentEventCard(event: EventResponse, onClick: () -> Unit = {}) {
     val formattedDate = formatHomeEventDate(event.eventDate)
     val status = getHomeEventStatus(event)
+    val statusColor = when (status) {
+        "Próximo" -> XoundYellow
+        "Finalizado" -> Color(0xFF4CAF50)
+        else -> Color(0xFF888888)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier
@@ -291,13 +301,14 @@ private fun RecentEventCard(event: EventResponse) {
                     Box(
                         modifier = Modifier
                             .size(5.dp)
-                            .background(Color(0xFF888888), CircleShape)
+                            .background(statusColor, CircleShape)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = status,
                         fontSize = 10.sp,
-                        color = Color(0xFF888888)
+                        fontWeight = FontWeight.Medium,
+                        color = statusColor
                     )
                 }
             }
