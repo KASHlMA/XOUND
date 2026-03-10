@@ -57,6 +57,7 @@ fun LibraryScreen(
     val songs by songViewModel.songs.collectAsState()
     val favorites by songViewModel.favorites.collectAsState()
     val isLoading by songViewModel.isLoading.collectAsState()
+    val deleteError by songViewModel.deleteError.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("Todas") }
@@ -74,7 +75,7 @@ fun LibraryScreen(
         when (selectedFilter) {
             "Favoritos" -> songs.filter { favorites.contains(it.id) }
             "Recientes" -> songs.sortedByDescending { it.createdAt }
-            "Por clave" -> songs.sortedBy { it.tone ?: "ZZZ" }
+            "Tonalidad" -> songs.sortedBy { it.tone ?: "ZZZ" }
             else -> songs
         }
     }
@@ -114,6 +115,38 @@ fun LibraryScreen(
             dismissButton = {
                 OutlinedButton(onClick = { songToDelete = null }) {
                     Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Delete error dialog
+    if (deleteError != null) {
+        AlertDialog(
+            onDismissRequest = { songViewModel.clearDeleteError() },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFE5A100),
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "No se pudo eliminar",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(deleteError ?: "")
+            },
+            confirmButton = {
+                Button(
+                    onClick = { songViewModel.clearDeleteError() },
+                    colors = ButtonDefaults.buttonColors(containerColor = XoundNavy)
+                ) {
+                    Text("Entendido", color = Color.White)
                 }
             }
         )

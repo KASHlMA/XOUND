@@ -276,7 +276,7 @@ fun LiveModeScreen(
 
                 // Extra space at bottom for auto-scroll to reach end
                 Spacer(modifier = Modifier.height(200.dp))
-            } else if (setlistSongs.isEmpty()) {
+            } else {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -284,7 +284,8 @@ fun LiveModeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No hay canciones en el setlist",
+                        text = if (setlistSongs.isEmpty()) "No hay canciones en el setlist"
+                               else "No se pudieron cargar las canciones",
                         color = Color(0xFF888888),
                         fontSize = 14.sp
                     )

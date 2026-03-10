@@ -176,15 +176,22 @@ class EventViewModel : ViewModel() {
             _setlistLoading.value = true
             try {
                 val setlist = RetrofitClient.apiService.getSetlist(eventId)
-                _setlistSongs.value = setlist
 
-                // If songs don't come embedded, fetch them
-                if (setlist.isNotEmpty() && setlist.first().song == null) {
+                // Resolve songs from flat fields or nested object
+                val resolved = setlist.map { item ->
+                    if (item.song != null) item
+                    else item.copy(song = item.resolvedSong())
+                }
+
+                // If still no song data, fetch all songs as fallback
+                if (resolved.isNotEmpty() && resolved.first().song == null) {
                     val songs = RetrofitClient.apiService.getSongs()
                     val songMap = songs.associateBy { it.id }
-                    _setlistSongs.value = setlist.map { item ->
-                        item.copy(song = songMap[item.songId])
+                    _setlistSongs.value = resolved.map { item ->
+                        item.copy(song = item.song ?: songMap[item.songId])
                     }
+                } else {
+                    _setlistSongs.value = resolved
                 }
             } catch (_: Exception) {
                 _setlistSongs.value = emptyList()

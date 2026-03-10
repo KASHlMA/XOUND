@@ -24,6 +24,11 @@ class SongViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _deleteError = MutableStateFlow<String?>(null)
+    val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
+
+    fun clearDeleteError() { _deleteError.value = null }
+
     fun fetchSongs() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -85,11 +90,20 @@ class SongViewModel : ViewModel() {
 
     fun deleteSong(songId: Long) {
         viewModelScope.launch {
+            _deleteError.value = null
             try {
                 RetrofitClient.apiService.deleteSong(songId)
                 _songs.value = _songs.value.filter { it.id != songId }
+                _favorites.value = _favorites.value - songId
+            } catch (e: HttpException) {
+                val body = e.response()?.errorBody()?.string() ?: ""
+                _deleteError.value = if (body.contains("setlist", ignoreCase = true)) {
+                    "No se puede eliminar: la canción está en un setlist activo. Quítala del setlist primero."
+                } else {
+                    "Error al eliminar la canción"
+                }
             } catch (_: Exception) {
-                _error.value = "Error al ocultar la canción"
+                _deleteError.value = "Error de conexión al eliminar"
             }
         }
     }

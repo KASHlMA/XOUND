@@ -45,6 +45,58 @@ class EditSongViewModel : ViewModel() {
     private val _state = MutableStateFlow<EditSongState>(EditSongState.Idle)
     val state: StateFlow<EditSongState> = _state.asStateFlow()
 
+    private val _fetchState = MutableStateFlow<FetchLyricsState>(FetchLyricsState.Idle)
+    val fetchState: StateFlow<FetchLyricsState> = _fetchState.asStateFlow()
+
+    fun fetchLyrics(artist: String, title: String, source: String) {
+        if (title.isBlank()) {
+            _fetchState.value = FetchLyricsState.Error("Ingresa el nombre de la canción")
+            return
+        }
+        viewModelScope.launch {
+            _fetchState.value = FetchLyricsState.Loading
+            try {
+                when (source) {
+                    "LRCLIB" -> {
+                        val artistQ = artist.ifBlank { title }
+                        val response = RetrofitClient.apiService.searchLyrics(artistQ.trim(), title.trim())
+                        val lyrics = response.lyrics
+                        if (!lyrics.isNullOrBlank()) {
+                            _fetchState.value = FetchLyricsState.Success(lyrics)
+                        } else {
+                            _fetchState.value = FetchLyricsState.Error("No se encontró la letra")
+                        }
+                    }
+                    "CIFRACLUB" -> {
+                        val query = if (artist.isBlank()) title.trim() else "$artist $title".trim()
+                        val results = RetrofitClient.apiService.searchChords(query)
+                        if (results.isNotEmpty()) {
+                            val url = results[0]["url"] ?: ""
+                            if (url.isNotBlank()) {
+                                val chordData = RetrofitClient.apiService.fetchChords(url)
+                                val chords = chordData["chords"] ?: ""
+                                val detectedTone = chordData["tone"] ?: extractTone(chords)
+                                if (chords.isNotBlank()) {
+                                    _fetchState.value = FetchLyricsState.Success(chords, tone = detectedTone)
+                                } else {
+                                    _fetchState.value = FetchLyricsState.Error("No se encontraron acordes")
+                                }
+                            } else {
+                                _fetchState.value = FetchLyricsState.Error("No se encontraron resultados")
+                            }
+                        } else {
+                            _fetchState.value = FetchLyricsState.Error("No se encontraron resultados")
+                        }
+                    }
+                }
+            } catch (e: HttpException) {
+                _fetchState.value = FetchLyricsState.Error("Error ${e.code()}: ${e.response()?.errorBody()?.string() ?: e.message()}")
+            } catch (e: Exception) {
+                _fetchState.value = FetchLyricsState.Error(e.message ?: "Error de conexión")
+            }
+        }
+    }
+
     fun updateSong(id: Long, title: String, artist: String?, tone: String?, bpm: Int?, timeSignature: String?, lyrics: String?) {
         if (title.isBlank()) {
             _state.value = EditSongState.Error("El nombre es requerido")
@@ -76,6 +128,16 @@ class EditSongViewModel : ViewModel() {
 
     fun resetState() {
         _state.value = EditSongState.Idle
+        _fetchState.value = FetchLyricsState.Idle
+    }
+
+    private fun extractTone(content: String): String? {
+        val chordPattern = Regex("\\b([A-G][#b]?)(m|min|maj|dim|aug|sus|7|9)?\\b")
+        val match = chordPattern.find(content)
+        return match?.groupValues?.get(1)?.let { root ->
+            val suffix = match.groupValues.getOrNull(2) ?: ""
+            if (suffix == "m" || suffix == "min") "${root}m" else root
+        }
     }
 }
 
@@ -91,10 +153,24 @@ fun EditSongScreen(
     var bpmText by remember { mutableStateOf(song.bpm?.toString() ?: "") }
     var timeSignature by remember { mutableStateOf(song.timeSignature ?: "") }
     var lyrics by remember { mutableStateOf(song.lyrics ?: "") }
+    var selectedSource by remember { mutableStateOf("LRCLIB") }
 
     val state by editSongViewModel.state.collectAsState()
+    val fetchState by editSongViewModel.fetchState.collectAsState()
     val isLoading = state is EditSongState.Loading
+    val isFetching = fetchState is FetchLyricsState.Loading
     val isSuccess = state is EditSongState.Success
+
+    // Update lyrics and tone when fetched
+    LaunchedEffect(fetchState) {
+        if (fetchState is FetchLyricsState.Success) {
+            val result = fetchState as FetchLyricsState.Success
+            lyrics = result.lyrics
+            if (!result.tone.isNullOrBlank() && tone.isBlank()) {
+                tone = result.tone
+            }
+        }
+    }
 
     LaunchedEffect(state) {
         if (state is EditSongState.Success) {
@@ -212,6 +288,69 @@ fun EditSongScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // API source selector card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = XoundNavy)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Consultar letra y acordes",
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    EditSourceChip("LRCLIB", selectedSource == "LRCLIB") { selectedSource = "LRCLIB" }
+                    EditSourceChip("CIFRACLUB", selectedSource == "CIFRACLUB") { selectedSource = "CIFRACLUB" }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Fetch button
+        Button(
+            onClick = { editSongViewModel.fetchLyrics(artist, title, selectedSource) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp),
+            enabled = !isFetching && !isLoading,
+            colors = ButtonDefaults.buttonColors(containerColor = XoundYellow),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (isFetching) {
+                CircularProgressIndicator(
+                    color = XoundNavy,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = "Obtener Letra y Acordes",
+                    color = XoundNavy,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        // Fetch error
+        if (fetchState is FetchLyricsState.Error) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = (fetchState as FetchLyricsState.Error).message,
+                color = Color.Red,
+                fontSize = 12.sp
+            )
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Letra
@@ -252,7 +391,7 @@ fun EditSongScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            enabled = !isLoading,
+            enabled = !isLoading && !isFetching,
             colors = ButtonDefaults.buttonColors(containerColor = XoundNavy),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -281,6 +420,34 @@ private fun EditLabel(text: String) {
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         color = Color.Black
+    )
+}
+
+@Composable
+private fun EditSourceChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = "• $label",
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Color.White.copy(alpha = 0.2f),
+            selectedLabelColor = Color.White,
+            containerColor = Color.Transparent,
+            labelColor = Color.White.copy(alpha = 0.7f)
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            borderColor = Color.White.copy(alpha = 0.3f),
+            selectedBorderColor = Color.White.copy(alpha = 0.6f),
+            enabled = true,
+            selected = selected
+        ),
+        shape = RoundedCornerShape(10.dp)
     )
 }
 

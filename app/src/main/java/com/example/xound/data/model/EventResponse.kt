@@ -23,5 +23,31 @@ data class SetlistSongResponse(
     val eventId: Long = 0,
     val songId: Long = 0,
     val position: Int = 0,
-    val song: SongResponse? = null
-)
+    // Nested song (if API embeds it)
+    val song: SongResponse? = null,
+    // Flat song fields from backend JOIN
+    val songTitle: String? = null,
+    val songArtist: String? = null,
+    val songTone: String? = null,
+    val songContent: String? = null,
+    val songNotes: String? = null,
+    val songBpm: Int? = null,
+    val songTimeSignature: String? = null
+) {
+    /** Resolves the song from either nested object or flat fields */
+    fun resolvedSong(): SongResponse? {
+        if (song != null) return song
+        if (songTitle == null) return null
+        return SongResponse(
+            id = songId,
+            title = songTitle,
+            artist = songArtist,
+            tone = songTone,
+            content = songContent,
+            lyrics = songContent,
+            notes = songNotes,
+            bpm = songBpm,
+            timeSignature = songTimeSignature
+        )
+    }
+}
