@@ -26,6 +26,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.data.local.SessionManager
 import com.example.xound.ui.theme.*
 import com.example.xound.ui.viewmodel.BandViewModel
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 
 @Composable
 fun BandScreen(
@@ -41,6 +45,9 @@ fun BandScreen(
     val isLoading by bandViewModel.isLoading.collectAsState()
     val isAdmin = !SessionManager.isMusician()
     var copied by remember { mutableStateOf(false) }
+    var bandName by remember { mutableStateOf("") }
+    val error by bandViewModel.error.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
         bandViewModel.fetchBand()
@@ -86,33 +93,124 @@ fun BandScreen(
                 CircularProgressIndicator(color = XoundYellow, strokeWidth = 3.dp)
             }
         } else if (band == null) {
-            // No band
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = colors.navyCardDark)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            if (isAdmin) {
+                // Admin: create band
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = colors.navyCardDark)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Group,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No perteneces a ninguna banda",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = "Pide un código de invitación a tu administrador",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.4f)
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Groups,
+                            contentDescription = null,
+                            tint = XoundYellow,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Crea tu banda",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Tus músicos podrán unirse con el código generado",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        OutlinedTextField(
+                            value = bandName,
+                            onValueChange = { bandName = it },
+                            label = { Text("Nombre de la banda") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                if (bandName.isNotBlank()) bandViewModel.createBand(bandName.trim())
+                            }),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = XoundYellow,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                cursorColor = XoundYellow,
+                                focusedLabelColor = XoundYellow,
+                                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+
+                        if (error != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = error!!,
+                                fontSize = 13.sp,
+                                color = Color(0xFFF87171)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                focusManager.clearFocus()
+                                if (bandName.isNotBlank()) bandViewModel.createBand(bandName.trim())
+                            },
+                            enabled = bandName.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = XoundNavy,
+                                disabledContainerColor = Color.White.copy(alpha = 0.3f),
+                                disabledContentColor = XoundNavy.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Text(
+                                text = "Crear Banda",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Musician: no band
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = colors.navyCardDark)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No perteneces a ninguna banda",
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = "Pide un código de invitación a tu administrador",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.4f)
+                        )
+                    }
                 }
             }
         } else {

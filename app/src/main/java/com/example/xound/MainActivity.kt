@@ -107,7 +107,11 @@ class MainActivity : ComponentActivity() {
                     )
                     "roleSelection" -> RoleSelectionScreen(
                         onSelectAdmin = { currentScreen = "home" },
-                        onSelectMusician = { currentScreen = "musicianHome" }
+                        onSelectMusician = { currentScreen = "musicianHome" },
+                        onBack = {
+                            authViewModel.logout()
+                            currentScreen = "login"
+                        }
                     )
                     "home" -> HomeScreen(
                         onLogout = {
@@ -119,6 +123,10 @@ class MainActivity : ComponentActivity() {
                         onNavigateToAddSong = { currentScreen = "addSong" },
                         onNavigateToLiveMode = { currentScreen = "selectEventLive" },
                         onNavigateToBand = { currentScreen = "band" },
+                        onChangeRole = {
+                            SessionManager.setUserMode("")
+                            currentScreen = "roleSelection"
+                        },
                         onEventClick = { event ->
                             selectedEvent = event
                             eventDetailOrigin = "home"
@@ -136,6 +144,10 @@ class MainActivity : ComponentActivity() {
                         onNavigateToLibrary = { currentScreen = "library" },
                         onNavigateToLiveMode = { currentScreen = "selectEventLive" },
                         onNavigateToBand = { currentScreen = "band" },
+                        onChangeRole = {
+                            SessionManager.setUserMode("")
+                            currentScreen = "roleSelection"
+                        },
                         onEventClick = { event ->
                             selectedEvent = event
                             eventDetailOrigin = "musicianHome"

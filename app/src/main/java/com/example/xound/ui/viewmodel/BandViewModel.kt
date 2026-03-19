@@ -55,9 +55,43 @@ class BandViewModel : ViewModel() {
     private fun fetchMembers(bandId: Long) {
         viewModelScope.launch {
             try {
-                _members.value = RetrofitClient.apiService.getBandMembers(bandId)
+                val members = RetrofitClient.apiService.getBandMembers(bandId)
+                val adminId = _band.value?.adminUserId
+                val adminAlreadyInList = members.any { it.userId == adminId }
+                if (!adminAlreadyInList && adminId != null) {
+                    // Find admin name from band name or current user
+                    val adminName = if (!SessionManager.isMusician()) {
+                        SessionManager.getUserName()
+                    } else {
+                        "Admin"
+                    }
+                    val adminMember = BandMemberResponse(
+                        id = null,
+                        userId = adminId,
+                        userName = adminName,
+                        userUsername = null,
+                        roleName = "ADMIN"
+                    )
+                    _members.value = listOf(adminMember) + members
+                } else {
+                    _members.value = members
+                }
             } catch (_: Exception) {
                 _members.value = emptyList()
+            }
+        }
+    }
+
+    fun createBand(name: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                RetrofitClient.apiService.createBand(mapOf("name" to name))
+                fetchBand()
+            } catch (e: Exception) {
+                _error.value = "Error al crear la banda"
+                _isLoading.value = false
             }
         }
     }

@@ -41,13 +41,17 @@ import retrofit2.HttpException
 @Composable
 fun RoleSelectionScreen(
     onSelectAdmin: () -> Unit,
-    onSelectMusician: () -> Unit
+    onSelectMusician: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     val colors = LocalXoundColors.current
     val isDark = ThemeState.isDark(isSystemInDarkTheme())
     val userName = SessionManager.getUserName().ifBlank { "Usuario" }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+
+    val currentRole = SessionManager.getRoleName().uppercase()
+    val isAlreadyAdmin = currentRole == "ADMIN" || currentRole == "SUPER_ADMIN"
 
     var selectedRole by remember { mutableStateOf<String?>(null) }
     var code by remember { mutableStateOf("") }
@@ -193,12 +197,32 @@ fun RoleSelectionScreen(
                 // Option: Be admin
                 RoleCard(
                     title = "Ser Administrador",
-                    description = "Ingresa el código proporcionado por el super administrador.",
+                    description = if (isAlreadyAdmin) "Continuar como administrador."
+                                  else "Ingresa el código proporcionado por el super administrador.",
                     icon = Icons.Default.AdminPanelSettings,
                     backgroundColor = XoundNavy,
                     contentColor = Color.White,
-                    onClick = { selectedRole = "admin" }
+                    onClick = {
+                        if (isAlreadyAdmin) {
+                            SessionManager.setUserMode("admin")
+                            onSelectAdmin()
+                        } else {
+                            selectedRole = "admin"
+                        }
+                    }
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                TextButton(
+                    onClick = onBack
+                ) {
+                    Text(
+                        text = "← Volver al inicio de sesión",
+                        color = colors.textSecondary,
+                        fontSize = 14.sp
+                    )
+                }
             } else {
                 // Code input
                 val roleLabel = if (selectedRole == "musician") "Código de banda" else "Código de admin"
