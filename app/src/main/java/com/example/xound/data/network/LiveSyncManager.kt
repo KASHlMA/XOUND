@@ -48,6 +48,15 @@ object LiveSyncManager {
                 when (frame.command) {
                     "CONNECTED" -> {
                         ws.send("SUBSCRIBE\nid:sub-0\ndestination:/topic/band/$bandId/live\n\n\u0000")
+                        // Fetch current live state for late joiners (async, on IO dispatcher)
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            runCatching {
+                                val existing = RetrofitClient.apiService.getLiveSession(bandId)
+                                if (existing != null) {
+                                    _liveEvent.value = existing
+                                }
+                            }
+                        }
                     }
                     "MESSAGE" -> {
                         runCatching {

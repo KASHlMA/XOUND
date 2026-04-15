@@ -127,5 +127,5 @@ interface ApiService {
 
     // Live session
     @GET("api/live/{bandId}")
-    suspend fun getLiveSession(@Path("bandId") bandId: Long): LiveEvent
+    suspend fun getLiveSession(@Path("bandId") bandId: Long): LiveEvent?
 }

@@ -65,9 +65,9 @@ class MainActivity : ComponentActivity() {
                     val ev = globalLiveEvent ?: return@LaunchedEffect
                     when (ev.type) {
                         "LIVE_START" -> {
-                            val targetEvent = eventViewModel.events.value.find { it.id == ev.eventId }
+                            val targetEvent = eventViewModel.events.value.find { it.event.id == ev.eventId }
                             if (targetEvent != null && currentScreen != "liveMode") {
-                                liveEvent = targetEvent
+                                liveEvent = targetEvent.event
                                 currentScreen = "liveMode"
                             }
                         }
