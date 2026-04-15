@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.xound.data.local.SessionManager
+import com.example.xound.data.network.LiveSyncManager
 import com.example.xound.data.network.RetrofitClient
 import kotlinx.coroutines.launch
 import com.example.xound.data.model.EventResponse
@@ -56,6 +57,29 @@ class MainActivity : ComponentActivity() {
                 var viewSongOrigin by remember { mutableStateOf("library") }
                 var viewSongEventName by remember { mutableStateOf<String?>(null) }
                 var liveEvent by remember { mutableStateOf<EventResponse?>(null) }
+
+                // Auto-navegar cuando el admin inicia/termina modo en vivo (músico)
+                val globalLiveEvent by LiveSyncManager.liveEvent.collectAsState()
+                LaunchedEffect(globalLiveEvent) {
+                    if (!SessionManager.isMusician()) return@LaunchedEffect
+                    val ev = globalLiveEvent ?: return@LaunchedEffect
+                    when (ev.type) {
+                        "LIVE_START" -> {
+                            val targetEvent = eventViewModel.events.value.find { it.id == ev.eventId }
+                            if (targetEvent != null && currentScreen != "liveMode") {
+                                liveEvent = targetEvent
+                                currentScreen = "liveMode"
+                            }
+                        }
+                        "LIVE_END" -> {
+                            if (currentScreen == "liveMode") {
+                                currentScreen = "musicianHome"
+                                liveEvent = null
+                                LiveSyncManager.clearEvent()
+                            }
+                        }
+                    }
+                }
 
                 // Back handlers
                 BackHandler(enabled = currentScreen == "register") {
@@ -161,7 +185,18 @@ class MainActivity : ComponentActivity() {
                         eventViewModel = eventViewModel,
                         songViewModel = songViewModel
                     )
-                    "musicianHome" -> MusicianHomeScreen(
+                    "musicianHome" -> {
+                        // Conectar LiveSyncManager para músicos
+                        val musicianBandId by eventViewModel.bandId.collectAsState()
+                        LaunchedEffect(Unit) {
+                            eventViewModel.fetchBandId()
+                        }
+                        LaunchedEffect(musicianBandId) {
+                            val bid = musicianBandId ?: return@LaunchedEffect
+                            if (bid > 0) LiveSyncManager.connect(bid)
+                        }
+
+                        MusicianHomeScreen(
                         onLogout = {
                             authViewModel.logout()
                             currentScreen = "login"
@@ -184,6 +219,7 @@ class MainActivity : ComponentActivity() {
                         eventViewModel = eventViewModel,
                         songViewModel = songViewModel
                     )
+                    }
                     "events" -> EventsScreen(
                         onBack = {
                             currentScreen = if (SessionManager.isMusician()) "musicianHome" else "home"
@@ -331,12 +367,32 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "liveMode" -> liveEvent?.let { event ->
+                        val liveBandId by eventViewModel.bandId.collectAsState()
+                        val isAdminMode = !SessionManager.isMusician()
+
+                        // Admin: asegurar que bandId esté cargado y LiveSyncManager conectado
+                        LaunchedEffect(Unit) {
+                            if (isAdminMode) {
+                                eventViewModel.fetchBandId()
+                            }
+                        }
+                        LaunchedEffect(liveBandId, isAdminMode) {
+                            val bid = liveBandId ?: return@LaunchedEffect
+                            if (bid > 0) LiveSyncManager.connect(bid)
+                        }
+
                         LiveModeScreen(
                             event = event,
                             onBack = {
-                                currentScreen = "setlistPreview"
+                                if (isAdminMode) {
+                                    currentScreen = "setlistPreview"
+                                } else {
+                                    currentScreen = "musicianHome"
+                                }
                             },
-                            eventViewModel = eventViewModel
+                            eventViewModel = eventViewModel,
+                            isAdmin = isAdminMode,
+                            bandId = liveBandId ?: -1L
                         )
                     }
                 }
