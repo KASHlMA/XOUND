@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import retrofit2.HttpException
 
 sealed class AuthUiState {
@@ -17,6 +18,25 @@ sealed class AuthUiState {
     object Loading : AuthUiState()
     data class Success(val token: String) : AuthUiState()
     data class Error(val message: String) : AuthUiState()
+}
+
+/** Extrae un mensaje legible de un HttpException sin exponer JSON al usuario. */
+private fun HttpException.friendlyMessage(): String {
+    return when (code()) {
+        401 -> "Credenciales incorrectas"
+        403 -> "No tienes permiso para acceder"
+        404 -> "Usuario no encontrado"
+        500, 502, 503 -> "Error del servidor, intenta más tarde"
+        else -> {
+            // Intentar extraer el campo "message" o "error" del body JSON
+            runCatching {
+                val body = response()?.errorBody()?.string() ?: return@runCatching null
+                val json = JSONObject(body)
+                json.optString("message").takeIf { it.isNotBlank() }
+                    ?: json.optString("error").takeIf { it.isNotBlank() }
+            }.getOrNull() ?: "Error inesperado (${code()})"
+        }
+    }
 }
 
 class AuthViewModel : ViewModel() {
@@ -43,8 +63,7 @@ class AuthViewModel : ViewModel() {
                 )
                 _uiState.value = AuthUiState.Success(token)
             } catch (e: HttpException) {
-                val body = e.response()?.errorBody()?.string()
-                _uiState.value = AuthUiState.Error("Error ${e.code()}: ${body ?: e.message()}")
+                _uiState.value = AuthUiState.Error(e.friendlyMessage())
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(e.message ?: "Error de conexión")
             }
@@ -72,8 +91,7 @@ class AuthViewModel : ViewModel() {
                 )
                 _uiState.value = AuthUiState.Success(token)
             } catch (e: HttpException) {
-                val body = e.response()?.errorBody()?.string()
-                _uiState.value = AuthUiState.Error("Error ${e.code()}: ${body ?: e.message()}")
+                _uiState.value = AuthUiState.Error(e.friendlyMessage())
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(e.message ?: "Error de conexión")
             }
